@@ -1,0 +1,16 @@
+[tool.poetry]
+name = "dirtyflags"
+version = "0.1.0"
+description = ""
+authors = ["jamesxcode <james.x.johnson@gmail.com>"]
+readme = "README.md"
+packages = [{include = "dirtyflags", from = "src"}]
+
+[tool.poetry.dependencies]
+python = "^3.10"
+pylint = "^2.15.4"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
