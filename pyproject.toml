@@ -8,8 +8,9 @@ packages = [{include = "dirtyflags", from = "src"}]
 
 [tool.poetry.dependencies]
 python = "^3.10"
-pylint = "^2.15.4"
 
+[tool.poetry.group.dev.dependencies]
+pylint = "^2.15.4"
 
 [build-system]
 requires = ["poetry-core"]
