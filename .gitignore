@@ -216,3 +216,4 @@ cython_debug/
 /.scratch/**
 .scratch/**
 !/.scratch/
+!/.pytest_cache/
