@@ -50,13 +50,9 @@ dirtyflags officially supports Python 3.8+
 
 ## Supported Features and Best Practices
 - Sinmply use the `@dirtyflag` decorator
-- Supports the following attribute built-in datatypes :
-    - Text Type: str
-    - Numeric Types: int, float, complex
-    - Boolean Type:	bool
-    - bytes, bytearray, memoryview
+- Supports attributes of any datatype, built-in or custom
 - Works with Python dataclasses
-- Nested classes need to have the '@dirtyflag' decorator applied as well
+- Nested classes should have the '@dirtyflag' decorator applied as well
 
 
 ---
