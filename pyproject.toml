@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "dirtyflags"
-version = "0.5.0"
+version = "1.0.0"
 description = ""
 authors = ["jamesxcode <james.x.johnson@gmail.com>"]
 readme = "README.md"
