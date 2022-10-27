@@ -27,14 +27,14 @@ Has this instance changed = False
 >>> instance_default.attr1 = 234
 >>> # now dirty flag indicates the class has changed - and tells you what has changed
 >>> print(f"Has this instance changed = {instance_default.is_dirty()}")
->>> print(f"The attribute(s) that have changed: {instance_default.get_dirty_attrs()}")
+>>> print(f"The attribute(s) that have changed: {instance_default.dirty_attrs()}")
 Has this instance changed = True
 The attribute(s) that have changed: {'attr1'}
 
 >>> # dirtyflags even tracks changes when using __setter__
 >>> instance_default.__setattr__('attr2', 'changed the default')
 >>> print(f"Has this instance changed = {instance_default.is_dirty()}")
->>> print(f"The attribute(s) that have changed: {instance_default.get_dirty_attrs()}")
+>>> print(f"The attribute(s) that have changed: {instance_default.dirty_attrs()}")
 Has this instance changed = True
 The attribute(s) that have changed: {'attr2', 'attr1'}
 ```
@@ -45,6 +45,7 @@ dirtyflags is available on TBD:
 
 ```console
 $ TODO: define how to install
+For now - installation is just downloading the source from this Github repo.
 ```
 dirtyflags officially supports Python 3.8+
 
