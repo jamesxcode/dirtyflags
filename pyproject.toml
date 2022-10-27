@@ -1,7 +1,7 @@
 [tool.poetry]
 name = "dirtyflags"
 version = "1.0.0"
-description = ""
+description = "dirtyflags is a simple Python decorator that tracks when and which instance attributes have changed."
 authors = ["jamesxcode <james.x.johnson@gmail.com>"]
 readme = "README.md"
 packages = [{ include = "dirtyflags", from = "src" }]

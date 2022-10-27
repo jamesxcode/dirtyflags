@@ -1,6 +1,6 @@
 # dirtyflags
 
-**dirtyflags** is a simple Python decorator that tracks when and which object attributes have changed.
+**dirtyflags** is a simple Python decorator that tracks when and which instance attributes have changed.
 
 ```python
 >>> from dirtyflags import dirtyflag
