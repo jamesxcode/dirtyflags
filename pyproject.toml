@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "dirtyflags"
-version = "1.0.3"
+version = "1.0.0"
 license = "BSD-3-Clause"
 description = "dirtyflags is a simple Python decorator that tracks when and which instance attributes have changed."
 authors = ["jamesxcode <james.x.johnson@gmail.com>"]
@@ -9,7 +9,7 @@ repository = "https://github.com/jamesxcode/dirtyflags"
 packages = [{ include = "dirtyflags", from = "src" }]
 
 [tool.poetry.dependencies]
-python = "^3.10"
+python = "^3.8"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^7.1.3"
