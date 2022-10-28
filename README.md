@@ -41,11 +41,9 @@ The attribute(s) that have changed: {'attr2', 'attr1'}
 
 ## Installing dirtyflags
 
-dirtyflags is available on TBD:
 
 ```console
-$ TODO: define how to install
-For now - installation is just downloading the source from this Github repo.
+pip install dirtyflags
 ```
 dirtyflags officially supports Python 3.8+
 

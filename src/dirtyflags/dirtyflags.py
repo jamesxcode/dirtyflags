@@ -10,6 +10,8 @@ from hashlib import blake2b, blake2s
 from platform import architecture
 from typing import Any
 
+__all__ = ['dirtyflag']
+
 # create a logger
 logger = logging.getLogger(__name__)
 
