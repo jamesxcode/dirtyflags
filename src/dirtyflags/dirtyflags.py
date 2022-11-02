@@ -44,9 +44,12 @@ def dirtyflag(cls) -> Any:
     # override the decorated class's __setattr__ method
     def __setattr__(self, name, value):
 
-        # as attributes are populated, add them to the dirty attrs dict
-        # with original values
-        self.orig_attrs.setdefault(name, _dirty_hash(value))
+        if self.orig_attrs is None:
+            if name != 'orig_attrs':
+                self.orig_attrs = {}
+                self.orig_attrs.setdefault(name, _dirty_hash(value))
+        else:
+            self.orig_attrs.setdefault(name, _dirty_hash(value))
 
         # call the wrapped class original setattr method to update the value
         if old_setattr:
@@ -88,12 +91,13 @@ def dirtyflag(cls) -> Any:
         :param self: the instance object
         :return: a set of the dirty attributes, or None if there are no dirty attributes
         """
-        return [key for key, val in self.__dict__.items() if _dirty_hash(val) != self.orig_attrs.get(key)]
+        return [key for key, val in self.__dict__.items() if
+                _dirty_hash(val) != self.orig_attrs.get(key) and key != 'orig_attrs']
 
     # modify the decorated class and return to caller
     setattr(cls, 'is_dirty', is_dirty)
     setattr(cls, 'dirty_attrs', dirty_attrs)
-    setattr(cls, 'orig_attrs', {})
+    setattr(cls, 'orig_attrs', None)
 
     cls.__setattr__ = __setattr__
     return cls
