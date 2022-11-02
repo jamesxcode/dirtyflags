@@ -81,3 +81,18 @@ def test_list_and_dict_object_dirtyattrs():
             and 'd' in bo.dirty_attrs()
             and 'f' in bo.dirty_attrs()
     )
+
+
+def test_list_of_instances_for_scope():
+    @dirtyflag
+    class BasicObj():
+        def __init__(self, aint, bfloat):
+            self.a = aint
+            self.b = bfloat
+
+    # test this case
+    lst_objects = [BasicObj(a, a) for a in [1, 2]]
+    assert not lst_objects[1].is_dirty()
+    lst_objects[1].a = 11
+    assert lst_objects[1].is_dirty()
+    assert 'a' in lst_objects[1].dirty_attrs()
