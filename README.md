@@ -53,5 +53,5 @@ dirtyflags officially supports Python 3.8+
 - Works with Python dataclasses
 - Nested classes should have the '@dirtyflag' decorator applied as well
 
-
+[![linting: pylint](https://img.shields.io/badge/linting-pylint-yellowgreen)](https://github.com/PyCQA/pylint)
 ---
