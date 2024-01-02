@@ -1,4 +1,4 @@
-#  SPDX-FileCopyrightText: Copyright (c) 2022. James J. Johnson <james.x.johnson@gmail.com>
+#  SPDX-FileCopyrightText: Copyright (c) 2022-2024. James J. Johnson <james.x.johnson@gmail.com>
 #  SPDX-License-Identifier: BSD-3-Clause
 """
 dirtyflags is a simple Python decorator that tracks when and which object attributes have changed.
@@ -73,6 +73,7 @@ def dirtyflag(cls) -> Any:
             logger.error("Had an issue generating a hash code for the attribute error. %err", err)
             return None
 
+    @property
     def is_dirty(self) -> bool:
         """
         Utility function to indicate whether the instance of the decorated class

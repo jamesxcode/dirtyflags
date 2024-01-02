@@ -1,4 +1,4 @@
-#  SPDX-FileCopyrightText: Copyright (c) 2022. James J. Johnson <james.x.johnson@gmail.com>
+#  SPDX-FileCopyrightText: Copyright (c) 2022-2024. James J. Johnson <james.x.johnson@gmail.com>
 #  SPDX-License-Identifier: BSD-3-Clause
 from dirtyflags.dirtyflags import dirtyflag
 
@@ -16,7 +16,7 @@ def test_basic_object():
 
     # test things
     bo = BasicObj(5, 3.14, 'Test String', [1, 2], {'key1': 'val1'})
-    assert not bo.is_dirty()
+    assert not bo.is_dirty
 
 
 def test_basic_object_isdirty():
@@ -34,7 +34,7 @@ def test_basic_object_isdirty():
     bo = BasicObj(5, 3.14, 'Test String', [1, 2], {'key1': 'val1'})
     bo.a = 99
     bo.b = 88.88
-    assert bo.is_dirty()
+    assert bo.is_dirty
 
 
 def test_basic_object_dirtyattrs():
@@ -92,7 +92,7 @@ def test_list_of_instances_for_scope():
 
     # test this case
     lst_objects = [BasicObj(a, a) for a in [1, 2]]
-    assert not lst_objects[1].is_dirty()
+    assert not lst_objects[1].is_dirty
     lst_objects[1].a = 11
-    assert lst_objects[1].is_dirty()
+    assert lst_objects[1].is_dirty
     assert 'a' in lst_objects[1].dirty_attrs()
