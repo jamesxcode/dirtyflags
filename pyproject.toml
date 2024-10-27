@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "dirtyflags"
-version = "1.0.5"
+version = "1.0.7"
 license = "BSD-3-Clause"
 description = "dirtyflags is a simple Python decorator that tracks when and which instance attributes have changed."
 authors = ["jamesxcode <james.x.johnson@gmail.com>"]
