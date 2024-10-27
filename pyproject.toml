@@ -32,8 +32,8 @@ repository = "https://github.com/jamesxcode/dirtyflags"
 
 
 
-[tool.pylint.main]
-ignore-paths = "tests"
+#[tool.pylint.main]
+#ignore-paths = "tests"
 
-[tool.pylint.format]
-max-line-length = 120
+#[tool.pylint.format]
+#max-line-length = 120
