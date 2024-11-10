@@ -2,7 +2,7 @@
 name = "dirtyflags"
 version = "1.1.0"
 description = "dirtyflags is a simple Python decorator that tracks when and which instance attributes have changed."
-authors = [{ name = "James Johnson", email = "james.x.johnson@gmail.com" }]
+authors = [{ name = "James J Johnson", email = "james.x.johnson@gmail.com" }]
 readme = "README.md"
 
 [project.urls]
