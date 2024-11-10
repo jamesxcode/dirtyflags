@@ -4,13 +4,14 @@
 dirtyflags is a simple Python decorator that tracks when and which object attributes have changed.
 
 """
+
 import logging
 import pickle
 from hashlib import blake2b, blake2s
 from platform import architecture
 from typing import Any
 
-__all__ = ['dirtyflag']
+__all__ = ["dirtyflag"]
 
 # create a logger
 logger = logging.getLogger(__name__)
@@ -33,19 +34,18 @@ def dirtyflag(cls) -> Any:
 
     # choose the optimal blake2 for the system architecture (64-bit or 32-bit)
     try:
-        blake2 = blake2b if architecture()[0] == '64bit' else blake2s
+        blake2 = blake2b if architecture()[0] == "64bit" else blake2s
     except (KeyError,) as error:
         logger.error("Had trouble determing the architecture %error.", error)
         blake2 = blake2s
 
     # grab the __setattr_ function off of the decorated class to use later
-    old_setattr = getattr(cls, '__setattr__', None)
+    old_setattr = getattr(cls, "__setattr__", None)
 
     # override the decorated class's __setattr__ method
     def __setattr__(self, name, value):
-
         if self.orig_attrs is None:
-            if name != 'orig_attrs':
+            if name != "orig_attrs":
                 self.orig_attrs = {}
                 self.orig_attrs.setdefault(name, _dirty_hash(value))
         else:
@@ -70,7 +70,9 @@ def dirtyflag(cls) -> Any:
             dhash = blake2(pickle.dumps(any_parm), digest_size=8).hexdigest()
             return dhash
         except (ValueError,) as err:
-            logger.error("Had an issue generating a hash code for the attribute error. %err", err)
+            logger.error(
+                "Had an issue generating a hash code for the attribute error. %err", err
+            )
             return None
 
     @property
@@ -92,13 +94,16 @@ def dirtyflag(cls) -> Any:
         :param self: the instance object
         :return: a set of the dirty attributes, or None if there are no dirty attributes
         """
-        return [key for key, val in self.__dict__.items() if
-                _dirty_hash(val) != self.orig_attrs.get(key) and key != 'orig_attrs']
+        return [
+            key
+            for key, val in self.__dict__.items()
+            if _dirty_hash(val) != self.orig_attrs.get(key) and key != "orig_attrs"
+        ]
 
     # modify the decorated class and return to caller
-    setattr(cls, 'is_dirty', is_dirty)
-    setattr(cls, 'dirty_attrs', dirty_attrs)
-    setattr(cls, 'orig_attrs', None)
+    setattr(cls, "is_dirty", is_dirty)
+    setattr(cls, "dirty_attrs", dirty_attrs)
+    setattr(cls, "orig_attrs", None)
 
     cls.__setattr__ = __setattr__
     return cls
