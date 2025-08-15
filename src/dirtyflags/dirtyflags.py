@@ -39,24 +39,37 @@ def dirtyflag(cls) -> Any:
         logger.error("Had trouble determing the architecture %error.", error)
         blake2 = blake2s
 
-    # grab the __setattr_ function off of the decorated class to use later
+    # grab the __setattr__ function off of the decorated class to use later
     old_setattr = getattr(cls, "__setattr__", None)
+
+    def _capture_orig_attrs(self):
+        """
+        Capture the original attribute hashes after initialization.
+        """
+        self.orig_attrs = {}
+        for key, value in self.__dict__.items():
+            if key != "orig_attrs":
+                self.orig_attrs[key] = _dirty_hash(value)
+
+    # Wrap the original __init__ to capture initial state after construction
+    orig_init = getattr(cls, "__init__", None)
+    def __init__(self, *args, **kwargs):
+        if orig_init:
+            orig_init(self, *args, **kwargs)
+        _capture_orig_attrs(self)
 
     # override the decorated class's __setattr__ method
     def __setattr__(self, name, value):
-        if self.orig_attrs is None:
-            if name != "orig_attrs":
-                self.orig_attrs = {}
-                self.orig_attrs.setdefault(name, _dirty_hash(value))
-        else:
-            self.orig_attrs.setdefault(name, _dirty_hash(value))
-
         # call the wrapped class original setattr method to update the value
         if old_setattr:
             old_setattr(self, name, value)
         else:
             # Old-style class
             raise AttributeError
+        # If orig_attrs exists, only set hash for new attributes
+        if hasattr(self, "orig_attrs") and self.orig_attrs is not None:
+            if name != "orig_attrs" and name not in self.orig_attrs:
+                self.orig_attrs[name] = _dirty_hash(value)
 
     def _dirty_hash(any_parm: Any) -> str | None:
         """
@@ -103,7 +116,7 @@ def dirtyflag(cls) -> Any:
     # modify the decorated class and return to caller
     setattr(cls, "is_dirty", is_dirty)
     setattr(cls, "dirty_attrs", dirty_attrs)
-    setattr(cls, "orig_attrs", None)
-
+    setattr(cls, "_capture_orig_attrs", _capture_orig_attrs)
     cls.__setattr__ = __setattr__
+    cls.__init__ = __init__
     return cls
