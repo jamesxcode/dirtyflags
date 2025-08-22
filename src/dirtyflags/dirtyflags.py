@@ -17,106 +17,65 @@ __all__ = ["dirtyflag"]
 logger = logging.getLogger(__name__)
 
 
-def dirtyflag(cls) -> Any:
+def dirtyflag(cls: type) -> type:
     """
-    Implements a very basic mechanism for tracking which attributes of a class
-    have been changed after initialization. When used as a decorator, as designed
-    this only track which first level attributes have changed.  It only tracks changes
-    made through obj.attr = <somevalue>, and does not maintain the original value.
-
-    :param cls: the class which the decorator is applied to
-    :return: the class which the decorator is applied to with alterations
-
+    Decorator to track which attributes of a class instance have changed since initialization.
+    Adds an `is_dirty` property and a `dirty_attrs()` method to the class.
     """
+    import functools
 
-    # declare a sentinel to hold empty objects, since None is a valid default
-    _sentinel = object()
+    # Select blake2 hash function based on architecture
+    blake2 = blake2b if architecture()[0] == "64bit" else blake2s
 
-    # choose the optimal blake2 for the system architecture (64-bit or 32-bit)
-    try:
-        blake2 = blake2b if architecture()[0] == "64bit" else blake2s
-    except (KeyError,) as error:
-        logger.error("Had trouble determing the architecture %error.", error)
-        blake2 = blake2s
+    def _hash_value(val: Any) -> str:
+        try:
+            return blake2(pickle.dumps(val), digest_size=8).hexdigest()
+        except Exception as e:
+            logger.error(f"Error hashing attribute value: {e}")
+            return "<unhashable>"
 
-    # grab the __setattr__ function off of the decorated class to use later
-    old_setattr = getattr(cls, "__setattr__", None)
-
-    def _capture_orig_attrs(self):
-        """
-        Capture the original attribute hashes after initialization.
-        """
-        self.orig_attrs = {}
-        for key, value in self.__dict__.items():
-            if key != "orig_attrs":
-                self.orig_attrs[key] = _dirty_hash(value)
-
-    # Wrap the original __init__ to capture initial state after construction
     orig_init = getattr(cls, "__init__", None)
+    orig_setattr = getattr(cls, "__setattr__", None)
+
+    @functools.wraps(orig_init)
     def __init__(self, *args, **kwargs):
         if orig_init:
             orig_init(self, *args, **kwargs)
-        _capture_orig_attrs(self)
+        # Capture initial attribute hashes
+        self._dirtyflags__orig = {k: _hash_value(v) for k, v in self.__dict__.items() if k != "_dirtyflags__orig"}
 
-    # override the decorated class's __setattr__ method
     def __setattr__(self, name, value):
-        # call the wrapped class original setattr method to update the value
-        if old_setattr:
-            old_setattr(self, name, value)
+        if orig_setattr:
+            orig_setattr(self, name, value)
         else:
-            # Old-style class
-            raise AttributeError
-        # If orig_attrs exists, only set hash for new attributes
-        if hasattr(self, "orig_attrs") and self.orig_attrs is not None:
-            if name != "orig_attrs" and name not in self.orig_attrs:
-                self.orig_attrs[name] = _dirty_hash(value)
+            super(cls, self).__setattr__(name, value)
+        # If new attribute, record its original hash
+        if hasattr(self, "_dirtyflags__orig") and name != "_dirtyflags__orig":
+            if name not in self._dirtyflags__orig:
+                self._dirtyflags__orig[name] = _hash_value(value)
 
-    def _dirty_hash(any_parm: Any) -> str | None:
-        """
-        Utility function to calculate a custom hash that will work on even python datatypes
-        that are not hashable.
-
-        :param any_parm: The value of the attribue to calculate a hash for
-        :return: The custom hash value
-        """
-        try:
-            dhash = blake2(pickle.dumps(any_parm), digest_size=8).hexdigest()
-            return dhash
-        except (ValueError,) as err:
-            logger.error(
-                "Had an issue generating a hash code for the attribute error. %err", err
-            )
-            return None
+    def dirty_attrs(self) -> list:
+        """Return a list of attribute names that have changed since initialization."""
+        if not hasattr(self, "_dirtyflags__orig"):
+            return []
+        dirty = []
+        for k, v in self.__dict__.items():
+            if k == "_dirtyflags__orig":
+                continue
+            orig_hash = self._dirtyflags__orig.get(k, None)
+            if orig_hash is None:
+                continue  # attribute added after init, not dirty until changed again
+            if _hash_value(v) != orig_hash:
+                dirty.append(k)
+        return dirty
 
     @property
     def is_dirty(self) -> bool:
-        """
-        Utility function to indicate whether the instance of the decorated class
-        is dirty or not.
-
-        :param self: the instance being checked
-        :return: True if dirty, False otherwise
-        """
+        """Return True if any tracked attribute has changed since initialization."""
         return bool(self.dirty_attrs())
 
-    def dirty_attrs(self) -> list | None:
-        """
-        Utility function to grab the list of instance attributes that
-        have been modified and are dirty.
-
-        :param self: the instance object
-        :return: a set of the dirty attributes, or None if there are no dirty attributes
-        """
-        return [
-            key
-            for key, val in self.__dict__.items()
-            if _dirty_hash(val) != self.orig_attrs.get(key) and key != "orig_attrs"
-        ]
-
-    # modify the decorated class and return to caller
-    setattr(cls, "is_dirty", is_dirty)
-    setattr(cls, "dirty_attrs", dirty_attrs)
-    setattr(cls, "_capture_orig_attrs", _capture_orig_attrs)
-    cls.__setattr__ = __setattr__
     cls.__init__ = __init__
+    cls.__setattr__ = __setattr__
+    cls.dirty_attrs = dirty_attrs
+    cls.is_dirty = is_dirty
     return cls
