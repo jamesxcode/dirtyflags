@@ -48,10 +48,25 @@ pip install dirtyflags
 dirtyflags officially supports Python 3.8+
 
 ## Supported Features and Best Practices
-- Sinmply use the `@dirtyflag` decorator
+- Simply use the `@dirtyflag` decorator
 - Supports attributes of any datatype, built-in or custom
 - Works with Python dataclasses
 - Nested classes should have the '@dirtyflag' decorator applied as well
+
+### How dirty state is tracked
+
+Each decorated instance carries its own private tracker (stored under the
+underscore-prefixed `_dirtyflags__tracker` attribute).  When the instance is
+created, the tracker records a baseline hash of every attribute; every later
+assignment is compared against that baseline by `is_dirty` and `dirty_attrs()`.
+
+**Late-added attributes:** an attribute first assigned *after* `__init__` is
+not dirty until it is changed again.  Its first assignment after creation
+records a fresh baseline for that attribute, so merely adding the attribute
+does not mark the instance dirty — only a subsequent change to it does.
+
+Values that cannot be pickled are treated as unhashable: they never compare as
+changed, so they do not affect `is_dirty` or `dirty_attrs()`.
 
 [![linting: pylint](https://img.shields.io/badge/linting-pylint-yellowgreen)](https://github.com/PyCQA/pylint)
 ---
