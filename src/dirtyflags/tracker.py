@@ -11,18 +11,14 @@ records every subsequent attribute assignment, and answers two questions:
 Late-added rule
 ---------------
 An attribute first assigned *after* ``track()`` was called is not dirty until
-it is changed again.  Its first post-track assignment records a fresh baseline
-for that attribute; only assignments after that record it as changed.  This
-rule is load-bearing behaviour of the public API: attributes added after
-initialisation are tracked from the moment they appear, so comparing them
-against the (non-existent) creation-time baseline would mark every late-added
-attribute dirty immediately.
+it is changed again: its first post-track assignment records a fresh baseline
+for that attribute, and only a subsequent change to it counts as dirty.
 
 Hashing
 -------
 Values are hashed with ``pickle.dumps`` + blake2 (blake2b on 64-bit platforms,
 blake2s otherwise).  Values that cannot be pickled hash to a fixed sentinel
-string and therefore never compare as changed; they are treated as unhashable.
+and therefore never compare as changed; they are treated as unhashable.
 """
 
 import logging
@@ -78,7 +74,7 @@ class DirtyTracker:
         """
         if name not in self._orig:
             # Late-added rule: a first-time attribute baselines at its first
-            # post-track assignment; it is dirty only after changing again.
+            # post-track assignment and becomes dirty only on a later change.
             self._orig[name] = self._hash_value(value)
 
     def dirty_attrs(self, current: Dict[str, Any]) -> list:

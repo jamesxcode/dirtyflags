@@ -3,5 +3,6 @@
 """dirtyflags __init__.py"""
 
 from .dirtyflags import dirtyflag
+from .tracker import DirtyTracker
 
-__all__ = ["dirtyflag"]
+__all__ = ["dirtyflag", "DirtyTracker"]

@@ -61,9 +61,9 @@ created, the tracker records a baseline hash of every attribute; every later
 assignment is compared against that baseline by `is_dirty` and `dirty_attrs()`.
 
 **Late-added attributes:** an attribute first assigned *after* `__init__` is
-not dirty until it is changed again.  Its first assignment after creation
-records a fresh baseline for that attribute, so merely adding the attribute
-does not mark the instance dirty — only a subsequent change to it does.
+not dirty until it is changed again: its first assignment after creation
+records a fresh baseline for that attribute, and only a subsequent change to
+it marks the instance dirty.
 
 Values that cannot be pickled are treated as unhashable: they never compare as
 changed, so they do not affect `is_dirty` or `dirty_attrs()`.

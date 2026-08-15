@@ -34,6 +34,17 @@ def test_late_added_attribute_not_dirty_until_changed_again():
     assert tracker.dirty_attrs({"a": 5, "z": 2}) == ["z"]
 
 
+def test_late_added_attribute_stays_not_dirty_while_unchanged():
+    """A late-added attribute queried before any further change is never dirty."""
+    tracker = DirtyTracker()
+    tracker.track({"a": 5})
+    tracker.set("z", 1)
+    # Query repeatedly without changing z: it must never report dirty.
+    for _ in range(3):
+        assert not tracker.is_dirty({"a": 5, "z": 1})
+        assert tracker.dirty_attrs({"a": 5, "z": 1}) == []
+
+
 def test_reassigning_same_value_is_not_dirty():
     tracker = DirtyTracker()
     tracker.track({"a": 5})
