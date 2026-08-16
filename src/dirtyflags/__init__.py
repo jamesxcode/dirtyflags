@@ -2,4 +2,7 @@
 #  SPDX-License-Identifier: BSD-3-Clause
 """dirtyflags __init__.py"""
 
-from .dirtyflags import dirtyflag as dirtyflag
+from .dirtyflags import dirtyflag
+from .tracker import DirtyTracker
+
+__all__ = ["dirtyflag", "DirtyTracker"]
