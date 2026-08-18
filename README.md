@@ -57,7 +57,7 @@ dirtyflags officially supports Python 3.8+
 
 Each decorated instance carries its own private tracker (stored under the
 underscore-prefixed `_dirtyflags__tracker` attribute).  When the instance is
-created, the tracker records a baseline hash of every attribute; every later
+created, the tracker records a baseline digest of every attribute; every later
 assignment is compared against that baseline by `is_dirty` and `dirty_attrs()`.
 
 **Late-added attributes:** an attribute first assigned *after* `__init__` is
@@ -65,8 +65,15 @@ not dirty until it is changed again: its first assignment after creation
 records a fresh baseline for that attribute, and only a subsequent change to
 it marks the instance dirty.
 
-Values that cannot be pickled are treated as unhashable: they never compare as
-changed, so they do not affect `is_dirty` or `dirty_attrs()`.
+By default, values are compared with pickle + blake2 (blake2b on 64-bit
+platforms, blake2s otherwise).  Values that cannot be pickled never compare as
+changed: each failure is logged and recorded in the tracker's
+`compare_failures` set, so you can inspect which attributes could not be
+compared.  The comparison strategy itself is an internal seam of the tracker
+(`dirtyflags.comparators`): `DirtyTracker(comparator=...)` accepts an alternate
+adapter — for example `EqualityComparator`, a fast identity/equality-based
+comparison that never pickles — without changing the public `@dirtyflag`
+interface.
 
 [![linting: pylint](https://img.shields.io/badge/linting-pylint-yellowgreen)](https://github.com/PyCQA/pylint)
 ---

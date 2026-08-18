@@ -1,9 +1,22 @@
 #  SPDX-FileCopyrightText: Copyright (c) 2022-2024. James J. Johnson <james.x.johnson@gmail.com>
 #  SPDX-License-Identifier: BSD-3-Clause
 """Tests for DirtyTracker at its public seam: track, set, dirty_attrs, is_dirty."""
+import logging
 import pickle
 
+from dirtyflags.comparators import EqualityComparator
 from dirtyflags.tracker import DirtyTracker
+
+
+class RecordingComparator:
+    """Test double: records every value it digests and returns a fixed digest."""
+
+    def __init__(self):
+        self.digests = []
+
+    def digest(self, value):
+        self.digests.append(value)
+        return "digest"
 
 
 def test_fresh_tracker_is_not_dirty():
@@ -70,6 +83,81 @@ def test_track_replaces_previous_baseline():
     assert not tracker.is_dirty({"a": 9})
 
 
+def test_injected_comparator_is_used_for_all_digests():
+    """The comparator is an injectable seam: track/set/is_dirty all digest through it."""
+    comp = RecordingComparator()
+    tracker = DirtyTracker(comparator=comp)
+    tracker.track({"a": 5})
+    assert comp.digests == [5]
+    tracker.set("a", 9)
+    # set records the assignment but keeps the baseline: no new digest.
+    assert comp.digests == [5]
+    tracker.is_dirty({"a": 9})
+    # The query digests the current value once per tracked attribute.
+    assert comp.digests == [5, 9]
+
+
+def test_comparator_failure_is_logged_and_recorded():
+    """A comparator failure is logged and recorded per-attribute, never collapsed into a sentinel."""
+
+    class ExplodingComparator:
+        def digest(self, value):
+            if isinstance(value, int):
+                raise ValueError("cannot digest ints")
+            return "digest"
+
+    tracker = DirtyTracker(comparator=ExplodingComparator())
+    tracker.track({"a": 5})
+    assert "a" in tracker.compare_failures
+    assert not tracker.is_dirty({"a": 5})
+    assert tracker.dirty_attrs({"a": 5}) == []
+
+
+def test_comparator_failure_recovered_by_later_success():
+    """Once the comparator succeeds for an attribute, it is removed from compare_failures."""
+
+    class FlakyComparator:
+        def __init__(self):
+            self.calls = 0
+
+        def digest(self, value):
+            self.calls += 1
+            if isinstance(value, int) and self.calls <= 2:
+                raise ValueError("flaky")
+            return "digest"
+
+    tracker = DirtyTracker(comparator=FlakyComparator())
+    tracker.track({"a": 5})          # call 1: fails -> recorded
+    assert "a" in tracker.compare_failures
+    tracker.is_dirty({"a": 5})       # call 2: fails -> still recorded
+    assert "a" in tracker.compare_failures
+    tracker.is_dirty({"a": 5})       # call 3: succeeds -> recovered
+    assert "a" not in tracker.compare_failures
+
+
+def test_comparator_failure_is_logged(caplog):
+    class ExplodingComparator:
+        def digest(self, value):
+            raise ValueError("cannot digest ints")
+
+    with caplog.at_level(logging.ERROR, logger="dirtyflags.tracker"):
+        DirtyTracker(comparator=ExplodingComparator()).track({"a": 5})
+    assert any("a" in record.message for record in caplog.records)
+
+
+def test_default_comparator_is_pickle_blake2():
+    """Default behaviour is unchanged: pickle + blake2 (blake2b on 64-bit)."""
+    import hashlib
+    from platform import architecture
+
+    tracker = DirtyTracker()
+    tracker.track({"a": [1, 2]})
+    expected = (
+        hashlib.blake2b if architecture()[0] == "64bit" else hashlib.blake2s
+    )(pickle.dumps([1, 2]), digest_size=8).hexdigest()
+    assert tracker._orig["a"] == expected
+
+
 def test_unhashable_value_is_not_dirty():
     class Unpicklable:
         def __reduce__(self):
@@ -92,6 +180,43 @@ def test_late_added_unhashable_value_not_dirty_until_changed_again():
     # unhashable sentinel means it never compares as changed.
     tracker.set("z", Unpicklable())
     assert not tracker.is_dirty({"a": 5, "z": Unpicklable()})
+
+
+def test_late_added_value_with_failing_comparator_is_not_dirty():
+    """A late-added attribute whose digest fails baselines at the failure marker."""
+
+    class ExplodingComparator:
+        def digest(self, value):
+            if isinstance(value, int):
+                raise ValueError("cannot digest ints")
+            return "digest"
+
+    tracker = DirtyTracker(comparator=ExplodingComparator())
+    tracker.track({"a": 5})
+    # First post-track assignment of a late attribute baselines it; the failure
+    # marker means it never compares as changed.
+    tracker.set("z", 1)
+    assert "z" in tracker.compare_failures
+    assert not tracker.is_dirty({"a": 5, "z": 1})
+
+
+def test_equality_comparator_in_place_mutation_is_not_reported():
+    """The equality adapter compares by identity + contents: in-place mutation is invisible."""
+    tracker = DirtyTracker(comparator=EqualityComparator())
+    state = {"a": [1, 2]}
+    tracker.track(dict(state))
+    # Mutate the shared container in place (the same object): not dirty.
+    state["a"].append(3)
+    assert not tracker.is_dirty(state)
+    assert tracker.dirty_attrs(state) == []
+
+
+def test_equality_comparator_replacement_is_reported():
+    """Replacing a tracked value with a new-but-equal object is reported as changed."""
+    tracker = DirtyTracker(comparator=EqualityComparator())
+    tracker.track({"a": [1, 2]})
+    # A fresh list with equal contents is a different object: dirty.
+    assert tracker.dirty_attrs({"a": [1, 2]}) == ["a"]
 
 
 def test_tracker_is_stored_in_instance_dict_not_tracker_state():
