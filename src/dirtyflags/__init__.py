@@ -2,7 +2,15 @@
 #  SPDX-License-Identifier: BSD-3-Clause
 """dirtyflags __init__.py"""
 
+from .comparators import ComparatorError, EqualityComparator, PickleComparator, ValueComparator
 from .dirtyflags import dirtyflag
 from .tracker import DirtyTracker
 
-__all__ = ["dirtyflag", "DirtyTracker"]
+__all__ = [
+    "ComparatorError",
+    "EqualityComparator",
+    "PickleComparator",
+    "ValueComparator",
+    "dirtyflag",
+    "DirtyTracker",
+]

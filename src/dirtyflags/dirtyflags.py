@@ -5,7 +5,7 @@ dirtyflags is a simple Python decorator that tracks when and which object attrib
 
 The decorator is a thin adapter: it attaches one :class:`DirtyTracker` per
 instance and forwards lifecycle events (creation, assignment) to it.  All of
-the dirty-state logic — the baseline hash table, the late-added rule, and the
+the dirty-state logic — the baseline digest table, the late-added rule, and the
 dirty computation — lives in :mod:`dirtyflags.tracker`.
 """
 
@@ -29,7 +29,7 @@ def dirtyflag(cls: type) -> type:
 
     Each instance gets its own :class:`~dirtyflags.tracker.DirtyTracker`, stored under
     the underscore-prefixed ``_dirtyflags__tracker`` attribute.  The tracker owns the
-    baseline hash table, the late-added rule, and the dirty computation; this decorator
+    baseline digest table, the late-added rule, and the dirty computation; this decorator
     only wires ``__init__`` and ``__setattr__`` to it.
     """
     orig_init = getattr(cls, "__init__", None)
