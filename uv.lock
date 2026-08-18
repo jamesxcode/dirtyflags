@@ -1,8 +1,8 @@
 version = 1
 revision = 3
-requires-python = ">=3.13"
+requires-python = ">=3.14"
 
 [[package]]
 name = "dirtyflags"
-version = "1.2.0"
+version = "1.5.0"
 source = { virtual = "." }

@@ -8,6 +8,9 @@ readme = "README.md"
 [project.urls]
 repository = "https://github.com/jamesxcode/dirtyflags"
 
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+
 
 
 #[tool.pylint.main]
