@@ -76,6 +76,34 @@ def test_dataclass_works():
     assert "name" not in r.dirty_attrs()
 
 
+def test_dataclass_above_dirtyflag_works():
+    @dataclass
+    @dirtyflag
+    class Record:
+        name: str
+        value: int
+
+    r = Record("a", 1)
+    assert not r.is_dirty
+    r.value = 2
+    assert r.is_dirty
+    assert "value" in r.dirty_attrs()
+
+
+def test_slotted_dataclass_works():
+    @dirtyflag
+    @dataclass(slots=True)
+    class Record:
+        name: str
+        value: int
+
+    r = Record("a", 1)
+    assert not r.is_dirty
+    r.value = 2
+    assert r.is_dirty
+    assert "value" in r.dirty_attrs()
+
+
 @dirtyflag
 @dataclass
 class PickleRecord:
@@ -83,6 +111,25 @@ class PickleRecord:
 
     name: str
     value: int
+
+
+@dirtyflag
+@dataclass(slots=True)
+class PickleSlottedRecord:
+    name: str
+    value: int
+
+
+@dirtyflag
+class CustomPickleRecord:
+    def __init__(self, value):
+        self.value = value
+
+    def __getstate__(self):
+        return {"stored": self.value}
+
+    def __setstate__(self, state):
+        self.value = state["stored"] + 1
 
 
 def test_dataclass_pickle_round_trip():
@@ -96,3 +143,19 @@ def test_dataclass_pickle_round_trip():
     restored.name = "b"
     assert restored.is_dirty
     assert "name" in restored.dirty_attrs()
+
+
+def test_slotted_dataclass_pickle_round_trip():
+    r = PickleSlottedRecord("a", 1)
+    restored = pickle.loads(pickle.dumps(r))
+    assert (restored.name, restored.value) == ("a", 1)
+    assert not restored.is_dirty
+    restored.name = "b"
+    assert restored.is_dirty
+    assert "name" in restored.dirty_attrs()
+
+
+def test_pickle_round_trip_preserves_custom_pickle_hooks():
+    restored = pickle.loads(pickle.dumps(CustomPickleRecord(1)))
+    assert restored.value == 2
+    assert not restored.is_dirty

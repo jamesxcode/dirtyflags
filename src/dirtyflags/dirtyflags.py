@@ -38,5 +38,6 @@ def dirtyflag(cls: type) -> type:
             "__module__": cls.__module__,
             "__qualname__": cls.__qualname__,
             "__doc__": cls.__doc__,
+            "__annotations__": dict(getattr(cls, "__annotations__", {})),
         },
     )
