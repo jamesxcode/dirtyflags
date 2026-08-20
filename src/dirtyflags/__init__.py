@@ -4,6 +4,7 @@
 
 from .comparators import ComparatorError, EqualityComparator, PickleComparator, ValueComparator
 from .dirtyflags import dirtyflag
+from .mixin import DirtyMixin
 from .tracker import DirtyTracker
 
 __all__ = [
@@ -12,5 +13,6 @@ __all__ = [
     "PickleComparator",
     "ValueComparator",
     "dirtyflag",
+    "DirtyMixin",
     "DirtyTracker",
 ]
