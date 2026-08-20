@@ -53,6 +53,25 @@ dirtyflags officially supports Python 3.8+
 - Works with Python dataclasses
 - Nested classes should have the '@dirtyflag' decorator applied as well
 
+### Subclass seam
+
+`@dirtyflag` remains supported and returns a tracked subclass of the decorated
+class. For direct inheritance, subclass `DirtyMixin` and chain through
+`super().__init__()` before assigning attributes:
+
+```python
+from dirtyflags import DirtyMixin
+
+
+class ChangingObject(DirtyMixin):
+    def __init__(self, attr1):
+        super().__init__()
+        self.attr1 = attr1
+```
+
+Subclasses of a decorated class inherit tracking normally. Applying
+`@dirtyflag` more than once is idempotent.
+
 ### How dirty state is tracked
 
 Each decorated instance carries its own private tracker (stored under the
