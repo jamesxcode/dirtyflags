@@ -143,7 +143,8 @@ class DirtyTracker:
         is therefore not detected (see the module docstring's mutation
         contract).
         """
-        return [name for name in self._dirty if name in current]
+        # Baseline order (insertion order of ``_orig``) keeps results stable.
+        return [name for name in self._orig if name in self._dirty and name in current]
 
     def is_dirty(self, current: Dict[str, Any]) -> bool:
         """Return True if any tracked attribute has changed since creation."""
