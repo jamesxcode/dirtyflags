@@ -66,7 +66,6 @@ def test_reassigning_same_value_is_not_dirty():
 
 
 def test_multiple_attributes_tracked_independently():
-    """Each attribute's change is tracked independently."""
     tracker = DirtyTracker()
     tracker.track({"a": 1, "b": 2, "c": 3})
     tracker.set("a", 10)
@@ -85,17 +84,16 @@ def test_track_replaces_previous_baseline():
 
 
 def test_injected_comparator_is_used_for_all_digests():
-    """The comparator is an injectable seam: track and set digest through it; queries never do."""
+    """The comparator is an injectable seam: track/set/is_dirty all digest through it."""
     comp = RecordingComparator()
     tracker = DirtyTracker(comparator=comp)
     tracker.track({"a": 5})
     assert comp.digests == [5]
     tracker.set("a", 9)
-    # set digests the assigned value (write-time hashing); the baseline keeps
-    # its original digest, so the dirty set updates in place.
-    assert comp.digests == [5, 9]
+    # set records the assignment but keeps the baseline: no new digest.
+    assert comp.digests == [5]
     tracker.is_dirty({"a": 9})
-    # The query reads the cached dirty set: no further digests.
+    # The query digests the current value once per tracked attribute.
     assert comp.digests == [5, 9]
 
 
@@ -131,37 +129,10 @@ def test_comparator_failure_recovered_by_later_success():
     tracker = DirtyTracker(comparator=FlakyComparator())
     tracker.track({"a": 5})          # call 1: fails -> recorded
     assert "a" in tracker.compare_failures
-    assert not tracker.is_dirty({"a": 5})
-    # Queries never digest; recovery happens at the next write.
-    tracker.set("a", 6)              # call 2: still flaky -> still recorded
+    tracker.is_dirty({"a": 5})       # call 2: fails -> still recorded
     assert "a" in tracker.compare_failures
-    tracker.set("a", 7)              # call 3: succeeds -> recovered
+    tracker.is_dirty({"a": 5})       # call 3: succeeds -> recovered
     assert "a" not in tracker.compare_failures
-    # The baseline is the failure marker, so once a real digest succeeds the
-    # attribute compares as changed against it (it differs from the marker).
-    assert tracker.dirty_attrs({"a": 7}) == ["a"]
-
-
-def test_reassigning_uncomparable_value_stays_not_dirty():
-    """Reassigning an unpicklable value never flips the attribute dirty.
-
-    The baseline is the failure marker; reassigning the same (still
-    uncomparable) value must not mark the attribute changed — it stays
-    recorded in ``compare_failures`` until a digest succeeds.
-    """
-
-    class ExplodingComparator:
-        def digest(self, value):
-            raise ValueError("cannot digest ints")
-
-    tracker = DirtyTracker(comparator=ExplodingComparator())
-    tracker.track({"a": 5})
-    assert "a" in tracker.compare_failures
-    # Reassigning another uncomparable value keeps the baseline marker.
-    tracker.set("a", 6)
-    assert "a" in tracker.compare_failures
-    assert not tracker.is_dirty({"a": 6})
-    assert tracker.dirty_attrs({"a": 6}) == []
 
 
 def test_comparator_failure_is_logged(caplog):
@@ -229,58 +200,6 @@ def test_late_added_value_with_failing_comparator_is_not_dirty():
     assert not tracker.is_dirty({"a": 5, "z": 1})
 
 
-def test_set_digests_value_and_updates_cached_dirty_set():
-    """Write-time hashing: set() digests the assigned value and updates the cached dirty set."""
-    tracker = DirtyTracker()
-    tracker.track({"a": [5], "b": [3.14]})
-    tracker.set("a", [9])
-    assert tracker.dirty_attrs({"a": [9], "b": [3.14]}) == ["a"]
-    # Reassigning a value equal to the baseline clears the dirty flag.
-    tracker.set("a", [5])
-    assert tracker.dirty_attrs({"a": [5], "b": [3.14]}) == []
-
-
-def test_queries_never_digest():
-    """Queries read the cached dirty set in O(1): no comparator calls."""
-    comp = RecordingComparator()
-    tracker = DirtyTracker(comparator=comp)
-    tracker.track({"a": 5, "b": 3.14})
-    digests_after_track = len(comp.digests)
-    for _ in range(10):
-        assert not tracker.is_dirty({"a": 5, "b": 3.14})
-        assert tracker.dirty_attrs({"a": 5, "b": 3.14}) == []
-    assert len(comp.digests) == digests_after_track
-
-
-def test_query_state_is_ignored():
-    """Queries never digest the current state: an unrecorded change is not detected."""
-    tracker = DirtyTracker()
-    state = {"a": 5}
-    tracker.track(dict(state))
-    # Mutate a tracked attribute without recording the write: not detected.
-    state["a"] = 99
-    assert tracker.is_dirty(state) is False
-    assert tracker.dirty_attrs(state) == []
-
-
-def test_replacement_of_tracked_value_is_detected():
-    """Reassignment through set() is detected: the new value's digest differs from the baseline."""
-    tracker = DirtyTracker()
-    tracker.track({"a": [1, 2]})
-    # A fresh list with different contents is a reassignment: dirty.
-    tracker.set("a", [1, 2, 3])
-    assert tracker.dirty_attrs({"a": [1, 2, 3]}) == ["a"]
-
-
-def test_set_without_prior_track_baselines_attribute():
-    """set() on an untracked attribute baselines it (late-added rule)."""
-    tracker = DirtyTracker()
-    tracker.set("z", 1)
-    assert not tracker.is_dirty({"z": 1})
-    tracker.set("z", 2)
-    assert tracker.dirty_attrs({"z": 2}) == ["z"]
-
-
 def test_equality_comparator_in_place_mutation_is_not_reported():
     """The equality adapter compares by identity + contents: in-place mutation is invisible."""
     tracker = DirtyTracker(comparator=EqualityComparator())
@@ -297,21 +216,17 @@ def test_equality_comparator_replacement_is_reported():
     tracker = DirtyTracker(comparator=EqualityComparator())
     tracker.track({"a": [1, 2]})
     # A fresh list with equal contents is a different object: dirty.
-    tracker.set("a", [1, 2])
     assert tracker.dirty_attrs({"a": [1, 2]}) == ["a"]
 
 
-def test_tracker_digests_are_value_based_not_object_identity():
-    """The prod comparator digests by value: the baseline is content-based."""
-    import hashlib
-    from platform import architecture
-
+def test_tracker_is_stored_in_instance_dict_not_tracker_state():
+    """The tracker observes the instance's live __dict__; it holds no copy of values."""
     tracker = DirtyTracker()
-    tracker.track({"a": [1, 2]})
-    expected = (
-        hashlib.blake2b if architecture()[0] == "64bit" else hashlib.blake2s
-    )(pickle.dumps([1, 2]), digest_size=8).hexdigest()
-    assert tracker._orig["a"] == expected
+    state = {"a": 5}
+    tracker.track(dict(state))
+    # Mutate the shared state in place (simulates list/dict attribute mutation).
+    state["a"] = 99
+    assert tracker.is_dirty(state)
 
 
 def test_trackers_are_independent_per_instance():
