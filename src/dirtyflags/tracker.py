@@ -8,6 +8,13 @@ records every subsequent attribute assignment, and answers two questions:
 - ``is_dirty`` — has any tracked attribute changed since the baseline?
 - ``dirty_attrs()`` — which tracked attributes have changed?
 
+Hashing happens at write time
+-----------------------------
+Digests are computed once, when a value is recorded (at ``track()`` or
+``set()``), and stored in the tracker's state.  Queries read a cached dirty
+set in O(1) — they never digest anything, so query cost does not grow with
+the number of attributes.
+
 Late-added rule
 ---------------
 An attribute first assigned *after* ``track()`` was called is not dirty until
@@ -22,6 +29,14 @@ rather than a hardwired strategy.  The default comparator is the prod adapter
 blake2b on 64-bit platforms, blake2s otherwise); tests may inject a different
 adapter (e.g. :class:`~dirtyflags.comparators.EqualityComparator`) without
 touching the tracker.
+
+Mutation contract
+-----------------
+Only reassignments are tracked: a change is detected when an attribute is
+assigned a new value through ``set()``.  In-place mutation of a container
+attribute (``lst.append(3)``) never goes through ``__setattr__``, so it is not
+detected by default.  Inject :class:`~dirtyflags.comparators.EqualityComparator`
+to restore in-place-mutation detection at query time (see ADR-0004).
 
 Error policy
 ------------
@@ -47,18 +62,23 @@ class DirtyTracker:
     """Tracks which attributes of one instance have changed since creation.
 
     A decorated class attaches one tracker per instance.  The tracker owns the
-    baseline digest table, the late-added rule, and the dirty computation; the
+    baseline digest table, the late-added rule, and the cached dirty set; the
     decorator is a thin adapter that only forwards lifecycle events (creation,
     assignment) to the tracker.
 
     Value comparison is delegated to an injected :class:`ValueComparator`
     (an internal seam of this module): ``DirtyTracker()`` uses the prod
     pickle+blake2 adapter; pass ``comparator=`` to substitute one.
+
+    Digests are computed at write time (``track``/``set``); queries read the
+    cached dirty set and never digest, so they run in O(1).
     """
 
     def __init__(self, comparator: Optional[ValueComparator] = None) -> None:
         self._comparator = comparator if comparator is not None else PickleComparator()
         self._orig: Dict[str, str] = {}
+        self._current: Dict[str, str] = {}
+        self._dirty: Set[str] = set()
         self.compare_failures: Set[str] = set()
 
     def _digest(self, name: str, value: Any) -> str:
@@ -80,36 +100,51 @@ class DirtyTracker:
 
     def track(self, attributes: Dict[str, Any]) -> None:
         """Record the baseline digests of ``attributes`` (name -> value)."""
-        self._orig = {k: self._digest(k, v) for k, v in attributes.items()}
+        self._orig = {}
+        self._current = {}
+        self._dirty.clear()
+        for name, value in attributes.items():
+            digest = self._digest(name, value)
+            self._orig[name] = digest
+            self._current[name] = digest
 
     def set(self, name: str, value: Any) -> None:
-        """Record an assignment to ``name``.
+        """Record an assignment to ``name`` (write-time hashing).
 
+        The assigned value is digested once and stored as the current digest;
+        the dirty set updates in place by comparing it against the baseline.
         A first-time attribute is added to the baseline (late-added rule); an
-        existing attribute keeps its original baseline so that subsequent
-        queries can detect the change.  An uncomparable value never compares as
-        changed, so re-baselining it would only mask a real change — it is
-        left untouched.
+        existing attribute keeps its original baseline.  An uncomparable value
+        never compares as changed, so re-baselining it would only mask a real
+        change — it is left untouched.
         """
+        digest = self._digest(name, value)
         if name not in self._orig:
             # Late-added rule: a first-time attribute baselines at its first
             # post-track assignment and becomes dirty only on a later change.
-            self._orig[name] = self._digest(name, value)
+            self._orig[name] = digest
+        elif digest == self._current.get(name):
+            # Reassigning the already-recorded value is not a change (e.g. an
+            # unpicklable value whose baseline is the failure marker).
+            return
+        self._current[name] = digest
+        if self._orig[name] == digest:
+            self._dirty.discard(name)
+        else:
+            self._dirty.add(name)
 
     def dirty_attrs(self, current: Dict[str, Any]) -> list:
         """Return the names of tracked attributes whose values have changed.
 
-        ``current`` maps attribute name to its current value; it is the live
-        view of the instance's state at query time (its ``__dict__``, minus
-        the tracker itself).  Tracked attributes that no longer exist are not
-        reported as dirty, and an attribute whose comparison fails (see
-        ``compare_failures``) is never reported as dirty.
+        ``current`` maps attribute name to its current value; it is accepted
+        for interface compatibility with the mixin seam but is never digested —
+        the result is read from the dirty set maintained at write time.  A
+        change that bypasses ``set()`` (e.g. in-place mutation of a container)
+        is therefore not detected (see the module docstring's mutation
+        contract).
         """
-        return [
-            name for name, orig_digest in self._orig.items()
-            if name in current
-            and self._digest(name, current[name]) != orig_digest
-        ]
+        # Baseline order (insertion order of ``_orig``) keeps results stable.
+        return [name for name in self._orig if name in self._dirty and name in current]
 
     def is_dirty(self, current: Dict[str, Any]) -> bool:
         """Return True if any tracked attribute has changed since creation."""

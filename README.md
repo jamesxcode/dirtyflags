@@ -77,12 +77,24 @@ Subclasses of a decorated class inherit tracking normally. Applying
 Each decorated instance carries its own private tracker (stored under the
 underscore-prefixed `_dirtyflags__tracker` attribute).  When the instance is
 created, the tracker records a baseline digest of every attribute; every later
-assignment is compared against that baseline by `is_dirty` and `dirty_attrs()`.
+assignment digests the new value once and compares it against that stored
+baseline.  `is_dirty` and `dirty_attrs()` read a cached dirty set in O(1) —
+they never re-hash anything, so query cost does not grow with the number of
+attributes.
 
 **Late-added attributes:** an attribute first assigned *after* `__init__` is
 not dirty until it is changed again: its first assignment after creation
 records a fresh baseline for that attribute, and only a subsequent change to
 it marks the instance dirty.
+
+**What counts as a change:** only reassignments are tracked by default.  A
+change is detected when an attribute is assigned a new value through
+`__setattr__`; in-place mutation of a container attribute (`lst.append(3)`,
+`d['key'] = v`) never goes through `__setattr__` and is therefore *not*
+detected.  If you need to detect in-place mutation of list/dict attributes,
+inject the `EqualityComparator` adapter (identity- and equality-based, never
+pickles), which re-checks contents on every query — see
+`docs/adr/0004-write-time-hashing.md`.
 
 By default, values are compared with pickle + blake2 (blake2b on 64-bit
 platforms, blake2s otherwise).  Values that cannot be pickled never compare as

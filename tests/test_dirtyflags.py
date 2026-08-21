@@ -59,7 +59,7 @@ def test_basic_object_dirtyattrs():
     )
 
 
-def test_list_and_dict_object_dirtyattrs():
+def test_in_place_container_mutation_is_not_detected():
     # create object
     @dirtyflag
     class BasicObj():
@@ -72,15 +72,27 @@ def test_list_and_dict_object_dirtyattrs():
 
     # test things
     bo = BasicObj(5, 3.14, 'Test String', [1, 2], {'key1': 'val1'})
+    # In-place mutation of a container attribute is not detected by default:
+    # hashing happens at write time, and the mutation never goes through
+    # __setattr__.  Only reassignments are tracked (ADR-0004).
     bo.d.append(3)
     bo.f['key1'] = "Changed Value 1"
-    assert (
-            'a' not in bo.dirty_attrs()
-            and 'b' not in bo.dirty_attrs()
-            and 'c' not in bo.dirty_attrs()
-            and 'd' in bo.dirty_attrs()
-            and 'f' in bo.dirty_attrs()
-    )
+    assert bo.dirty_attrs() == []
+    assert not bo.is_dirty
+
+
+def test_container_reassignment_is_detected():
+    # Reassigning a container attribute is detected: the write digests the new
+    # value and compares it against the stored baseline.
+    @dirtyflag
+    class BasicObj():
+        def __init__(self, dlist):
+            self.d = dlist
+
+    bo = BasicObj([1, 2])
+    assert not bo.is_dirty
+    bo.d = [1, 3]
+    assert 'd' in bo.dirty_attrs()
 
 
 def test_list_of_instances_for_scope():
